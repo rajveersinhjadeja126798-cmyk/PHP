@@ -1,0 +1,244 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\colortbl ;\red255\green0\blue0;}
+{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\cf1\b\f0\fs40\lang9 code : 1\par
+\cf0\b0\fs28 <?php\par
+// Simple registration form + insert into `users` table.\par
+// Update DB credentials below before using.\par
+$DB_HOST = 'localhost';\par
+$DB_USER = 'root';\par
+$DB_PASS = '';\par
+$DB_NAME = 'test';\par
+\par
+$mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);\par
+if ($mysqli->connect_error) \{\par
+    die('DB connection error: ' . $mysqli->connect_error);\par
+\}\par
+\par
+if ($_SERVER['REQUEST_METHOD'] === 'POST') \{\par
+    $name = trim($_POST['name'] ?? '');\par
+    $email = trim($_POST['email'] ?? '');\par
+    $username = trim($_POST['username'] ?? '');\par
+    $password = $_POST['password'] ?? '';\par
+\par
+    if ($name === '' || $email === '' || $username === '' || $password === '') \{\par
+        $error = 'Please fill all fields.';\par
+    \} else \{\par
+        $hash = password_hash($password, PASSWORD_DEFAULT);\par
+        $stmt = $mysqli->prepare('INSERT INTO users (name, email, username, password) VALUES (?, ?, ?, ?)');\par
+        if ($stmt) \{\par
+            $stmt->bind_param('ssss', $name, $email, $username, $hash);\par
+            if ($stmt->execute()) \{\par
+                $success = 'Registration successful. You can now login.';\par
+            \} else \{\par
+                $error = 'Insert failed: ' . htmlspecialchars($stmt->error);\par
+            \}\par
+            $stmt->close();\par
+        \} else \{\par
+            $error = 'Prepare failed: ' . htmlspecialchars($mysqli->error);\par
+        \}\par
+    \}\par
+\}\par
+$mysqli->close();\par
+?>\par
+<!DOCTYPE html>\par
+<html>\par
+<head>\par
+    <meta charset="UTF-8">\par
+    <title>Register (DB)</title>\par
+</head>\par
+<body>\par
+    <h1>Registration</h1>\par
+    <?php if (!empty($error)): ?>\par
+        <p style="color:red"><?php echo $error; ?></p>\par
+    <?php endif; ?>\par
+    <?php if (!empty($success)): ?>\par
+        <p style="color:green"><?php echo $success; ?></p>\par
+    <?php endif; ?>\par
+    <form method="post" action="register_db.php">\par
+        <label>Name: <input type="text" name="name" required></label><br><br>\par
+        <label>Email: <input type="email" name="email" required></label><br><br>\par
+        <label>Username: <input type="text" name="username" required></label><br><br>\par
+        <label>Password: <input type="password" name="password" required></label><br><br>\par
+        <button type="submit">Register</button>\par
+    </form>\par
+    <p>Note: Create table `users` before using. Example SQL:</p>\par
+    <pre>CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), username VARCHAR(50) UNIQUE, password VARCHAR(255));</pre>\par
+</body>\par
+</html>\par
+\cf1\b\fs40 code : 2\par
+\cf0\b0\fs28 <?php\par
+session_start();\par
+$message = '';\par
+$savedUser = $_COOKIE['rm_user'] ?? '';\par
+$savedPass = $_COOKIE['rm_pass'] ?? '';\par
+\par
+// Handle logout via query\par
+if (isset($_GET['action']) && $_GET['action'] === 'logout') \{\par
+    $_SESSION = array();\par
+    session_destroy();\par
+    header('Location: remember_me.php');\par
+    exit;\par
+\}\par
+\par
+if (isset($_SESSION['user'])) \{\par
+    $user = $_SESSION['user'];\par
+    ?>\par
+    <!DOCTYPE html>\par
+    <html>\par
+    <head>\par
+        <meta charset="UTF-8">\par
+        <title>Welcome</title>\par
+    </head>\par
+    <body>\par
+        <h1>Hello, <?php echo htmlspecialchars($user); ?></h1>\par
+        <p><a href="remember_me.php?action=logout">Logout</a></p>\par
+    </body>\par
+    </html>\par
+    <?php\par
+    exit;\par
+\}\par
+\par
+// Process form\par
+if ($_SERVER['REQUEST_METHOD'] === 'POST') \{\par
+    $username = trim($_POST['username'] ?? '');\par
+    $password = trim($_POST['password'] ?? '');\par
+    $remember = isset($_POST['remember']);\par
+    // Demo credentials\par
+    if ($username === 'student' && $password === 'pass123') \{\par
+        $_SESSION['user'] = $username;\par
+        if ($remember) \{\par
+            setcookie('rm_user', $username, time() + 7*24*3600, '/');\par
+            setcookie('rm_pass', $password, time() + 7*24*3600, '/');\par
+        \} else \{\par
+            setcookie('rm_user', '', time() - 3600, '/');\par
+            setcookie('rm_pass', '', time() - 3600, '/');\par
+        \}\par
+        header('Location: remember_me.php');\par
+        exit;\par
+    \} else \{\par
+        $message = 'Invalid login.';\par
+    \}\par
+\}\par
+?>\par
+<!DOCTYPE html>\par
+<html>\par
+<head>\par
+    <meta charset="UTF-8">\par
+    <title>Remember Me Login</title>\par
+</head>\par
+<body>\par
+    <h1>Login (Remember Me)</h1>\par
+    <?php if ($message): ?>\par
+        <p style="color:red"><?php echo htmlspecialchars($message); ?></p>\par
+    <?php endif; ?>\par
+    <form method="post" action="remember_me.php">\par
+        <label>Username: <input type="text" name="username" value="<?php echo htmlspecialchars($savedUser); ?>" required></label><br><br>\par
+        <label>Password: <input type="password" name="password" value="<?php echo htmlspecialchars($savedPass); ?>" required></label><br><br>\par
+        <label><input type="checkbox" name="remember"> Remember me</label><br><br>\par
+        <button type="submit">Login</button>\par
+    </form>\par
+    <p>Demo: student / pass123</p>\par
+</body>\par
+</html>\par
+\cf1\b\fs40 code : 3\par
+\cf0\b0\fs28 <?php\par
+session_start();\par
+\par
+// If logout requested, destroy session and redirect to login\par
+if (isset($_GET['action']) && $_GET['action'] === 'logout') \{\par
+    $_SESSION = array();\par
+    if (ini_get('session.use_cookies')) \{\par
+        $params = session_get_cookie_params();\par
+        setcookie(session_name(), '', time() - 42000,\par
+            $params['path'], $params['domain'], $params['secure'], $params['httponly']\par
+        );\par
+    \}\par
+    session_destroy();\par
+    header('Location: session_auth.php');\par
+    exit;\par
+\}\par
+\par
+// If already logged in, show protected home\par
+if (isset($_SESSION['user'])) \{\par
+    $user = $_SESSION['user'];\par
+    ?>\par
+    <!DOCTYPE html>\par
+    <html>\par
+    <head>\par
+        <meta charset="UTF-8">\par
+        <title>Home (Protected)</title>\par
+    </head>\par
+    <body>\par
+        <h1>Welcome, <?php echo htmlspecialchars($user); ?></h1>\par
+        <p>This is a protected page. You cannot open this page if you are logged out.</p>\par
+        <p><a href="session_auth.php?action=logout">Logout</a></p>\par
+    </body>\par
+    </html>\par
+    <?php\par
+    exit;\par
+\}\par
+\par
+// Handle login form submission\par
+$message = '';\par
+if ($_SERVER['REQUEST_METHOD'] === 'POST') \{\par
+    $username = trim($_POST['username'] ?? '');\par
+    $password = trim($_POST['password'] ?? '');\par
+    // Simple hardcoded check for demo purposes\par
+    if ($username === 'student' && $password === 'pass123') \{\par
+        $_SESSION['user'] = $username;\par
+        header('Location: session_auth.php');\par
+        exit;\par
+    \} else \{\par
+        $message = 'Invalid username or password.';\par
+    \}\par
+\}\par
+?>\par
+<!DOCTYPE html>\par
+<html>\par
+<head>\par
+    <meta charset="UTF-8">\par
+    <title>Login (Session)</title>\par
+</head>\par
+<body>\par
+    <h1>Login (Session)</h1>\par
+    <?php if ($message): ?>\par
+        <p style="color:red"><?php echo htmlspecialchars($message); ?></p>\par
+    <?php endif; ?>\par
+    <form method="post" action="session_auth.php">\par
+        <label>Username: <input type="text" name="username" required></label><br><br>\par
+        <label>Password: <input type="password" name="password" required></label><br><br>\par
+        <button type="submit">Login</button>\par
+    </form>\par
+    <p>Demo credentials: <strong>student</strong> / <strong>pass123</strong></p>\par
+</body>\par
+</html>\par
+\cf1\b\fs40 code :  4\par
+\cf0\b0\fs28 <?php\par
+// Simple visitor cookie: new vs returning\par
+if (isset($_COOKIE['visitor'])) \{\par
+    $count = (int)$_COOKIE['visitor'] + 1;\par
+    setcookie('visitor', $count, time() + 30*24*3600, '/');\par
+    $message = 'Welcome back! This is your visit number ' . $count . '.';\par
+\} else \{\par
+    setcookie('visitor', 1, time() + 30*24*3600, '/');\par
+    $message = 'Welcome, new visitor!';\par
+\}\par
+?>\par
+<!DOCTYPE html>\par
+<html>\par
+<head>\par
+    <meta charset="UTF-8">\par
+    <title>Visitor Cookie</title>\par
+</head>\par
+<body>\par
+    <h1>Visitor Check</h1>\par
+    <p><?php echo htmlspecialchars($message); ?></p>\par
+    <p><a href="visitor_cookie.php">Refresh</a></p>\par
+</body>\par
+</html>\fs40\par
+\par
+\par
+\fs22\par
+}
+ 
